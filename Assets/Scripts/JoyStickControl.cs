@@ -2,23 +2,28 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.UI;
+using System;
 
-public class JoyStick : MonoBehaviour
+public class JoyStickControl : MonoBehaviour
 {
 
     // 공개
     public Transform Player;        // 플레이어.
     public Rigidbody myRigid;
     public Transform Stick;         // 조이스틱.
-    public int speed;
+    public float speed;
+    public float turnSensitivity;
     public GameObject Lwheel;
     public GameObject Rwheel;
 
-    public CharacterController cc;
+    public Text joyVecXText;
+    public Text joyVecYText;
+    float joyVexXfloat;
+    float joyVexYfloat;
+
     //중력 가속도의 크기
     public float gravity = -20;
-    //수직 속도
-    float yVelocity = 0;
 
     // 비공개
     private Vector3 StickFirstPos;  // 조이스틱의 처음 위치.
@@ -30,8 +35,6 @@ public class JoyStick : MonoBehaviour
 
     void Start()
     {
-        cc = GetComponent<CharacterController>();
-
         Radius = GetComponent<RectTransform>().sizeDelta.y * 0.5f;
         StickFirstPos = Stick.transform.position;
 
@@ -44,9 +47,10 @@ public class JoyStick : MonoBehaviour
 
     void Update()
     {
-        //JoystickMoveWorld();
-        Move();
         //CCMove();
+        JoystickForwardAMRBody();
+        JoystickRotatieAMRBody();
+        ShowJoyVec();
     }
 
     // 드래그
@@ -70,8 +74,21 @@ public class JoyStick : MonoBehaviour
             Stick.position = StickFirstPos + JoyVec * Radius;
 
         //Vector3 dir = new Vector3(JoyVec.x, 0, JoyVec.y);
-        Player.eulerAngles = new Vector3(0, Mathf.Atan2(JoyVec.x, JoyVec.y) * Mathf.Rad2Deg, 0);
+        //Player.eulerAngles = new Vector3(0, Mathf.Atan2(JoyVec.x, JoyVec.y) * Mathf.Rad2Deg, 0);
         //cc.Move(dir * speed * Time.deltaTime);
+    }
+
+    void ShowJoyVec()
+    {
+        joyVexXfloat = (float)Math.Truncate(JoyVec.x * 1000f) / 1000f;
+        joyVexYfloat =(float)Math.Truncate( JoyVec.y*1000f) /1000f; 
+
+        print("JoyVec.x : " + JoyVec.x);
+        print("JoyVec.y : " + JoyVec.y);
+
+
+        joyVecXText.GetComponent<Text>().text = "X : "+joyVexXfloat;
+        joyVecYText.GetComponent<Text>().text = "Y : " + joyVexYfloat;
     }
 
     // 드래그 끝.
@@ -87,27 +104,83 @@ public class JoyStick : MonoBehaviour
         if (MoveFlag)
         {
             Player.transform.Translate(Vector3.forward * Time.deltaTime * speed);
-            Lwheel.transform.Rotate(new Vector3(0, 10, 0));
-            Rwheel.transform.Rotate(new Vector3(0, 10, 0));
+            LwheelRotate(10);
+            RwheelRotate(10);
+        }
+    }
+    private void JoystickForwardAMRBody()     //조이스틱 전후진 입력
+    {
+        //float Xmove = JoyVec.x;
+        float Zmove = JoyVec.y;
+        //float Xmove = Input.GetAxisRaw("Horizontal");
+        //float Zmove = Input.GetAxisRaw("Vertical");
+
+        //Vector3 moveH = transform.right * Xmove;
+        Vector3 moveV = Player.transform.forward * Zmove;
+
+        Vector3 rVec = moveV * speed *5f* Time.deltaTime;
+
+        myRigid.MovePosition(Player.transform.position+rVec);
+
+        /*
+        if (MoveFlag)
+        {
+            Player.transform.Translate(Vector3.forward * Zmove * Time.deltaTime * speed);
+        }
+        */
+
+        AMRWheelForwardRotation(Zmove);
+
+
+    }
+
+    void JoystickRotatieAMRBody()       //조이스틱 좌우 입력
+    {
+        float Ymove = JoyVec.x;
+        Vector3 bodyRotationY = new Vector3(0, Ymove, 0) * turnSensitivity;
+        myRigid.MoveRotation(myRigid.rotation * Quaternion.Euler(bodyRotationY));
+
+        //AMRWheelRightRotation(Ymove);
+    }
+
+    void AMRWheelForwardRotation(float Vmove)     //입력에 따른 휠 회전
+    {
+        if (Vmove > 0)
+        {
+            LwheelRotate(10);
+            RwheelRotate(10);
+        }
+        else if (Vmove < 0)
+        {
+            LwheelRotate(-10);
+            RwheelRotate(-10);
         }
     }
 
-    private void Move()
+    void AMRWheelRightRotation( float Hmove)
     {
-        //float Xmove = JoyVec.x;
-        //float Zmove = JoyVec.y;
-
-        float Xmove = Input.GetAxisRaw("Horizontal");
-        float Zmove = Input.GetAxisRaw("Vertical");
-
-        Vector3 moveH = transform.right * Xmove;
-        Vector3 moveV = transform.forward * Zmove;
-
-        Vector3 rVec = (moveH + moveV).normalized * speed * Time.deltaTime;
-
-        myRigid.MovePosition(transform.position + rVec);
+        if (Hmove > 0)
+        {
+            LwheelRotate(10);
+            RwheelRotate(-10);
+        }
+        else if (Hmove < 0)
+        {
+            LwheelRotate(-10);
+            RwheelRotate(10);
+        }
+    }
+    public void RwheelRotate(int acc)       //R휠 회전 
+    {
+        Rwheel.transform.Rotate(new Vector3(0, acc, 0));
     }
 
+    public void LwheelRotate(int acc)           //L휠 회전
+    {
+        Lwheel.transform.Rotate(new Vector3(0, acc, 0));
+    }
+
+    /*
     private void CCMove()
     {
         //사용자의 입력을 받는다.
@@ -123,7 +196,6 @@ public class JoyStick : MonoBehaviour
         {
             yVelocity = 0;
         }
-        /*
         if (ARAVRInput.GetDown(ARAVRInput.Button.Two, ARAVRInput.Controller.RTouch) && cc.isGrounded)
         {
             yVelocity = jumpPower;
@@ -133,10 +205,9 @@ public class JoyStick : MonoBehaviour
         {
             yVelocity = jumpPower;
         }
-        */
         dir.y = yVelocity;
 
-        //이동한다.
         cc.Move(dir * speed * Time.deltaTime);
     }
+    */
 }
